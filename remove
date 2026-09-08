@@ -1,0 +1,16 @@
+#!/bin/bash
+set -euo pipefail
+source "$(dirname -- "${BASH_SOURCE[0]}")/scripts/common.sh"
+if [[ ${1:-} == -h || ${1:-} == --help ]]; then
+  echo 'Usage: ./remove — restore the stock lock and remove only this installer’s system changes.'
+  echo 'The Facelock package, camera setup, and enrolled faces are retained.'
+  exit 0
+fi
+(( $# == 0 )) || fail 'No arguments expected.'
+require_desktop
+# Restore a known password-capable locker before altering the optional face lane.
+omarchy plugin enable omarchy.lock
+omarchy restart shell
+sudo python3 "$PLUGIN_DIR/scripts/manage.py" remove
+echo "System integration removed. To delete plugin files: omarchy plugin remove $PLUGIN_ID"
+echo 'Facelock and your enrollments were retained. See README for backend removal.'

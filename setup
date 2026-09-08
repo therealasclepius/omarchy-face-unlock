@@ -1,0 +1,64 @@
+#!/bin/bash
+set -euo pipefail
+source "$(dirname -- "${BASH_SOURCE[0]}")/scripts/common.sh"
+existing=0
+unverified=0
+camera=()
+options=()
+while (( $# )); do
+  case "$1" in
+    --existing) existing=1 ;;
+    --camera) (( $# >= 2 )) || fail '--camera needs a device path or auto'; camera=(--camera "$2"); shift ;;
+    --uwsm-compat|--natural-motion) options+=("$1") ;;
+    --allow-unverified-omarchy) unverified=1 ;;
+    -h|--help)
+      cat <<'HELP'
+Usage: ./setup [--existing] [--camera /dev/videoN|auto]
+               [--uwsm-compat] [--natural-motion] [--allow-unverified-omarchy]
+
+Run in a terminal as your desktop user after installing the plugin.
+--existing: reuse an already configured Facelock backend and its enrollments.
+--uwsm-compat: disable Facelock's daemon local-session gate; same-account
+  callers, including remote sessions, can request scans. Does not enable SSH PAM.
+--natural-motion: use 0.995 instead of the default 0.985 movement similarity
+  limit. This reduces movement requirements and weakens the static-photo check.
+--allow-unverified-omarchy: proceed after reviewing a changed stock lock screen.
+HELP
+      exit 0 ;;
+    *) fail "Unknown option: $1" ;;
+  esac
+  shift
+done
+require_desktop
+require_installed
+if ! python3 "$PLUGIN_DIR/scripts/doctor.py" --compat-only; then
+  (( unverified )) || fail 'This Omarchy lock version has not been reviewed; see README compatibility notes.'
+fi
+[[ -t 0 && -t 1 ]] || fail 'Setup requires a visible terminal for sudo and face enrollment.'
+if ! command -v facelock >/dev/null; then
+  (( ! existing )) || fail '--existing requires an installed, configured Facelock backend.'
+  omarchy pkg aur add facelock-bin
+fi
+require_facelock
+sudo -v
+if (( ! existing )); then
+  echo 'Facelock will configure the camera, models, and encryption. PAM changes are disabled in its wizard.'
+  sudo facelock setup --no-pam --systemd --no-enroll "${camera[@]}"
+elif (( ${#camera[@]} )); then
+  fail '--camera cannot be combined with --existing; configure the shared backend explicitly instead.'
+fi
+sudo python3 "$PLUGIN_DIR/scripts/manage.py" ensure-key
+sudo systemctl restart facelock-daemon
+if ! facelock is-enrolled --quiet; then
+  printf '\nSit at your normal typing distance. Press Enter, then slowly turn your head left and right.\n'
+  read -r
+  sudo facelock enroll --user "$(id -un)" --label 'Normal sitting distance'
+fi
+facelock is-enrolled --quiet || fail 'Enrollment did not complete. Run ./enroll before enabling face unlock.'
+sudo python3 "$PLUGIN_DIR/scripts/manage.py" configure "${options[@]}"
+require_desktop
+omarchy plugin enable "$PLUGIN_ID"
+omarchy restart shell
+echo 'Face Unlock enabled. On the lock screen, press Enter with an empty field.'
+echo 'Turn your head slightly. Escape cancels; your password remains available.'
+echo 'Use ./enroll for another distance/angle and ./doctor to diagnose problems.'

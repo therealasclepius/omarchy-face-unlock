@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "id": "io.github.therealasclepius.face-unlock",
+  "name": "Face Unlock",
+  "version": "0.1.0",
+  "author": "therealasclepius",
+  "description": "Facelock face authentication with parallel password fallback and Escape cancellation.",
+  "kinds": ["service"],
+  "keepLoaded": true,
+  "entryPoints": {"service": "Service.qml"},
+  "omarchy": {"clonedFrom": "omarchy.lock"}
+}
