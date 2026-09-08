@@ -74,6 +74,8 @@ In the native 1Password Linux app, open **Settings → Security → Unlock using
 
 This uses [1Password's documented PAM/polkit integration](https://support.1password.com/system-authentication-linux-security/); the plugin never receives your vault password or vault contents. See [1Password setup instructions](https://support.1password.com/system-authentication-linux/) and [supported installation methods](https://support.1password.com/install-linux/). Website passwords and applications with their own authentication mechanisms are not automatically replaced.
 
+An actual 1Password face unlock was manually confirmed on the tested Dell XPS 13, with a corresponding successful polkit face-authentication log entry. This is a test on that setup, not a guarantee for every installation.
+
 ### Verify and disable
 
 Keep a terminal open while testing. Use harmless commands:

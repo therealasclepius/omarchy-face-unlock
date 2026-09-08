@@ -11,7 +11,8 @@
 - Add 12 installer tests covering rollback, custom-stack refusal, vendor overrides,
   service selection, and backend policy preservation.
 - Physically verify sudo and polkit face success plus covered-camera password fallback
-  on the Dell XPS 13 with Facelock 0.2.1. App-specific 1Password verification is separate.
+  on the Dell XPS 13 with Facelock 0.2.1. Also confirm an actual 1Password face unlock
+  with system authentication enabled.
 
 ## 0.1.0
 
