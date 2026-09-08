@@ -24,6 +24,8 @@ Item {
   property bool fingerprintConfigured: false
   property bool faceConfigured: false
   property bool faceAuthenticating: false
+  property bool autoFacePending: false
+  property bool displayBlanked: false
   property string faceMessage: ""
   property bool previewVisible: false
   property string enteredPassword: ""
@@ -125,6 +127,9 @@ Item {
     fingerprintAuthenticating = false
     fingerprintRetryTimer.stop()
     faceAuthenticating = false
+    autoFacePending = false
+    autoFaceTimer.stop()
+    displayBlanked = false
     faceMessage = ""
     faceTimeout.stop()
     if (facePam.active) facePam.abort()
@@ -140,6 +145,7 @@ Item {
 
     resetAuthenticationState()
     lockRequested = true
+    autoFacePending = true
     armBlankTimer()
     logEvent("lock-requested")
     queueSessionLock()
@@ -179,7 +185,23 @@ Item {
 
   function runBlank() {
     stopFace()
+    displayBlanked = true
     if (!blankProcess.running) blankProcess.running = true
+  }
+
+  function scheduleAutoFace() {
+    if (!autoFacePending || !lockRequested || !sessionLock.secure || !faceConfigured) return
+    if (displayBlanked || authenticatingPassword || enteredPassword.length > 0) return
+    if (!autoFaceTimer.running) autoFaceTimer.start()
+  }
+
+  function handleUserWake() {
+    if (displayBlanked && lockRequested) {
+      displayBlanked = false
+      autoFacePending = true
+      scheduleAutoFace()
+    }
+    runWake()
   }
 
   function submitPassword(value) {
@@ -216,6 +238,8 @@ Item {
   }
 
   function stopFace(message) {
+    autoFacePending = false
+    autoFaceTimer.stop()
     var wasAuthenticating = faceAuthenticating
     faceAuthenticating = false
     faceTimeout.stop()
@@ -227,6 +251,8 @@ Item {
   function startFace() {
     if (!lockRequested || !sessionLock.secure || !faceConfigured) return
     if (authenticatingPassword || faceAuthenticating || facePam.active) return
+    autoFacePending = false
+    autoFaceTimer.stop()
     failureMessage = ""
     faceMessage = ""
     runWake()
@@ -283,6 +309,7 @@ Item {
         sessionLockStabilizeTimer.stop()
         pendingSessionLockTimer.stop()
         root.startFingerprint()
+        root.scheduleAutoFace()
       }
     }
 
@@ -329,7 +356,7 @@ Item {
         onPasswordTextEdited: function(password) { root.enteredPassword = password }
         onSubmitPassword: function(password) { root.submitPassword(password) }
         onClearFailureRequested: root.failureMessage = ""
-        onWakeRequested: root.runWake()
+        onWakeRequested: root.handleUserWake()
       }
 
     }
@@ -418,6 +445,25 @@ Item {
   }
 
   Timer {
+    id: autoFaceTimer
+    interval: 600
+    onTriggered: {
+      if (!root.autoFacePending || root.displayBlanked || root.enteredPassword.length > 0) return
+      root.startFace()
+    }
+  }
+
+  // Input which wakes a powered-down display may not reach the lock surface.
+  IdleMonitor {
+    enabled: root.lockRequested
+    timeout: 5
+    respectInhibitors: false
+    onIsIdleChanged: {
+      if (!isIdle && root.lockRequested && root.displayBlanked) root.handleUserWake()
+    }
+  }
+
+  Timer {
     id: faceTimeout
     interval: 12000
     onTriggered: root.stopFace("Face scan timed out. Press Enter to retry, or use your password.")
@@ -429,6 +475,7 @@ Item {
     onExited: function(exitCode) {
       root.faceConfigured = exitCode === 0
       if (!root.faceConfigured) root.stopFace()
+      else root.scheduleAutoFace()
     }
   }
 
@@ -616,6 +663,7 @@ Item {
         fingerprint: root.fingerprintConfigured,
         face: root.faceConfigured,
         faceAuthenticating: root.faceAuthenticating,
+        automaticFaceUnlock: true,
         authenticating: root.authenticating,
         lastEvent: root.lastEvent,
         lastEventAt: root.lastEventAt

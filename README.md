@@ -2,13 +2,17 @@
 
 Face unlock using an infrared camera and [Facelock](https://github.com/tyvsmith/facelock), with password authentication available while the camera scans.
 
-- **Enter** on an empty password field starts a scan.
-- **Escape** cancels it.
+- A face scan starts automatically once the lock screen is secure and face authentication is ready.
+- Waking a display blanked by the lock screen with the mouse or keyboard starts a fresh scan.
+- **Enter** on an empty password field retries a scan.
+- **Escape** cancels a queued or active scan.
 - Type your password at any time; a rejected scan does not unlock the screen.
 - Face status appears below the password field, separate from password errors.
-- Camera scanning is explicit: it does not start automatically on lock or wake.
+- Each automatic attempt is bounded; failed scans do not retry continuously. Automatic scans wait 600 ms and do not start while you are typing or checking a password.
 
 This plugin replaces Omarchy's stock lock plugin through `clonedFrom`. It does **not** patch `/usr/share/omarchy/`. Default setup adds only a dedicated face PAM service. Separately opt into `sudo` and graphical authentication with `./auth` below.
+
+Automatic scanning can unlock immediately after locking if your enrolled face remains visible. After a failed or cancelled scan, press Enter to retry, or let the display blank and wake it again. Opening a laptop lid without mouse or keyboard activity is not a verified automatic-scan trigger.
 
 ## Requirements and support
 
@@ -17,7 +21,7 @@ This plugin replaces Omarchy's stock lock plugin through `clonedFrom`. It does *
 - Facelock **0.2.1** or a compatible newer version, available as AUR `facelock-bin`.
 - Working password unlock, an interactive terminal, and sudo access for setup.
 
-Physically tested on a Dell XPS 13 DX13260 with its 360×360, 15 fps IR camera. Other hardware has not been physically tested. The tested system achieved first-attempt unlocks of approximately **1–3.5 seconds** after normal-distance enrollment and optional movement tuning. These are observations, not a performance guarantee.
+Physically tested on a Dell XPS 13 DX13260 with its 360×360, 15 fps IR camera. Other hardware has not been physically tested. The tested system achieved first-attempt unlocks of approximately **1–3.5 seconds** after normal-distance enrollment and optional movement tuning. These are observations, not a performance guarantee. They describe the earlier Enter-to-scan flow; automatic triggering has passed automated checks and loaded in the live shell, but still needs a physical lock/wake test.
 
 ## Install
 

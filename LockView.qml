@@ -132,7 +132,7 @@ Item {
       visible: root.faceConfigured
       text: root.authenticatingPassword ? "Checking password…" : (root.faceAuthenticating
         ? "Look at the camera and turn your head slightly. You can type your password or press Esc to cancel."
-        : (root.faceMessage || "Press Enter with an empty field for face unlock"))
+        : (root.faceMessage || "Face unlock starts automatically. Look at the camera, or type your password."))
       textFormat: Text.PlainText
       wrapMode: Text.WordWrap
       horizontalAlignment: Text.AlignHCenter
@@ -199,7 +199,7 @@ Item {
 
         Keys.onPressed: function(event) {
           root.wakeRequested()
-          if (event.key === Qt.Key_Escape && root.faceAuthenticating) root.cancelFaceRequested()
+          if (event.key === Qt.Key_Escape && root.faceConfigured) root.cancelFaceRequested()
           if (event.key === Qt.Key_Escape || (event.modifiers & Qt.ControlModifier && event.key === Qt.Key_U)) {
             root.passwordTextEdited("")
             event.accepted = true

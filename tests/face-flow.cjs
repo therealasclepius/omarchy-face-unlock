@@ -3,7 +3,7 @@ const vm = require('node:vm');
 const path = require('node:path');
 const assert = require('node:assert/strict');
 const source = fs.readFileSync(path.join(__dirname, '..', 'Service.qml'), 'utf8');
-const functions = ['stopFace', 'startFace', 'handleFaceFinished'].map(name => {
+const functions = ['stopFace', 'startFace', 'handleFaceFinished', 'scheduleAutoFace', 'handleUserWake'].map(name => {
   const start = source.indexOf('  function ' + name + '(');
   const end = source.indexOf('\n  }', start) + 4;
   assert(start > 0 && end > start);
@@ -15,6 +15,8 @@ function context() {
     authenticatingPassword: false, faceAuthenticating: false,
     failureMessage: '', faceMessage: '', enteredPassword: '', unlocked: false, starts: 0,
     faceTimeout: {stop() {}, restart() {}},
+    autoFacePending: true, displayBlanked: false,
+    autoFaceTimer: {running: false, start() {this.running = true;}, stop() {this.running = false;}},
     runWake() {}, logEvent() {}, finishUnlock() { c.unlocked = true; },
     PamResult: {Success: 0},
     facePam: {active: false, abort() {this.active = false;}, start() {c.starts++; return true;}}
@@ -59,3 +61,24 @@ for (const patch of [{lockRequested:false}, {sessionLock:{secure:false}}, {faceC
   c.startFace(); assert.equal(c.faceMessage, '', 'retry clears old face feedback');
 }
 console.log('Face flow checks passed: guards, failure, retry, success, cancellation, late results, start failure, password independence, feedback.');
+
+for (const patch of [{lockRequested:false}, {sessionLock:{secure:false}}, {faceConfigured:false}, {authenticatingPassword:true}, {enteredPassword:'typing'}, {displayBlanked:true}, {autoFacePending:false}]) {
+  const c = Object.assign(context(), patch); c.scheduleAutoFace();
+  assert.equal(c.autoFaceTimer.running, false, 'automatic scan must honor readiness, cancellation, blanking and password guards');
+}
+{
+  const c = context(); c.scheduleAutoFace(); assert.equal(c.autoFaceTimer.running, true);
+  c.startFace(); assert.equal(c.starts, 1); assert.equal(c.autoFacePending, false);
+  c.handleFaceFinished(1); c.scheduleAutoFace(); assert.equal(c.autoFaceTimer.running, false, 'no endless retries');
+}
+{
+  const c = context(); c.scheduleAutoFace(); c.stopFace('Cancelled'); c.scheduleAutoFace();
+  assert.equal(c.autoFaceTimer.running, false, 'Escape cancels a queued scan');
+  c.displayBlanked = true; c.handleUserWake();
+  assert.equal(c.displayBlanked, false); assert.equal(c.autoFaceTimer.running, true, 'waking blanked display schedules a fresh scan');
+}
+{
+  const c = context(); c.stopFace('Cancelled'); c.handleUserWake();
+  assert.equal(c.autoFaceTimer.running, false, 'ordinary mouse movement cannot undo cancellation');
+}
+console.log('Automatic scan checks passed: readiness, password typing, cancellation, wake and bounded attempts.');

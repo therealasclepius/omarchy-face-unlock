@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- Start a face scan automatically once the lock is secure and the backend is ready.
+- Start a fresh scan on mouse or keyboard wake after the locker blanks the display.
+- Preserve Escape cancellation, manual Enter retry, password fallback, and bounded attempts.
+- Add automatic-trigger checks for readiness, password entry, cancellation, and wake.
+- Validate loading in the live Omarchy shell; physical automatic lock/wake testing remains pending.
+
 ## 0.2.0
 
 - Add independently selectable sudo and polkit face authentication with `auth enable`.
