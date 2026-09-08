@@ -71,6 +71,8 @@ def main():
     except (ValueError, TypeError, KeyError):
         enabled = False
     print(('OK: ' if enabled else 'CHECK: ') + 'Face Unlock plugin enabled')
+    result = command('python3', str(ROOT / 'scripts/auth_manage.py'), 'status')
+    print(result.stdout.strip() if result.returncode == 0 else 'CHECK: optional authentication status unavailable')
     print('Performance/recognition require a real lock-screen test; these checks do not prove a face match.')
     return 0 if good and enabled else 1
 

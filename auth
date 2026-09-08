@@ -1,0 +1,39 @@
+#!/bin/bash
+set -euo pipefail
+source "$(dirname -- "${BASH_SOURCE[0]}")/scripts/common.sh"
+action=${1:---help}
+(( $# == 0 )) || shift
+case "$action" in
+  -h|--help)
+    cat <<'HELP'
+Usage: ./auth enable --sudo|--polkit [--sudo --polkit] [--allow-session-bypass]
+       ./auth disable --sudo|--polkit|--all
+       ./auth status
+
+sudo: face authentication for terminal admin commands, including installs.
+polkit: face authentication for ALL graphical polkit prompts, including
+  1Password system authentication. This is not restricted to 1Password.
+Password fallback is retained; scans run before the password prompt.
+--allow-session-bypass: explicitly accept an existing abort_if_ssh=false
+  configuration. Remote callers may trigger scans and satisfy these services
+  while your face is in view. This command never changes that setting.
+HELP
+    exit 0 ;;
+  status) exec python3 "$PLUGIN_DIR/scripts/auth_manage.py" status "$@" ;;
+  enable|disable) ;;
+  *) fail "Unknown action: $action" ;;
+esac
+require_desktop
+[[ -t 0 && -t 1 ]] || fail 'Use a visible terminal for authentication setup.'
+if [[ $action == enable ]]; then
+  require_facelock
+  facelock is-enrolled --quiet || fail 'Enroll your face with ./enroll first.'
+fi
+sudo python3 "$PLUGIN_DIR/scripts/auth_manage.py" "$action" "$@"
+if [[ $action == enable ]]; then
+  echo 'Test sudo in a fresh terminal: sudo -k; sudo /usr/bin/true'
+  echo 'Test a graphical prompt: pkexec /usr/bin/true'
+  echo 'For 1Password: Settings > Security > Unlock using system authentication.'
+  echo 'Unlock once with your account password, then lock and unlock the app again.'
+  echo 'Also test with your camera covered: wait for the password prompt and use your password.'
+fi

@@ -11,6 +11,7 @@ require_desktop
 # Restore a known password-capable locker before altering the optional face lane.
 omarchy plugin enable omarchy.lock
 omarchy restart shell
+sudo python3 "$PLUGIN_DIR/scripts/auth_manage.py" disable --all
 sudo python3 "$PLUGIN_DIR/scripts/manage.py" remove
 echo "System integration removed. To delete plugin files: omarchy plugin remove $PLUGIN_ID"
 echo 'Facelock and your enrollments were retained. See README for backend removal.'
