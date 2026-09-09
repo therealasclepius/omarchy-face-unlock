@@ -2,3 +2,6 @@ __pycache__/
 *.pyc
 .venv/
 .DS_Store
+packaging/arch/pkg/
+packaging/arch/src/
+*.pkg.tar.*

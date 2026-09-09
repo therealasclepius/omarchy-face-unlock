@@ -26,3 +26,10 @@ require_facelock() {
     grep -Fxq "$capability" <<<"$caps" || fail "Facelock lacks $capability. Update the backend."
   done
 }
+
+require_helper() {
+  [[ -x /usr/bin/omarchy-face-unlock-helper ]] ||
+    fail 'Install the signed omarchy-face-unlock-helper package first; see packaging/README.md. Setup cannot install privileged code from this plugin.'
+  [[ $(/usr/bin/omarchy-face-unlock-helper --protocol) == 1 ]] ||
+    fail 'The system helper is incompatible or untrusted; reinstall it from your trusted signed package source.'
+}

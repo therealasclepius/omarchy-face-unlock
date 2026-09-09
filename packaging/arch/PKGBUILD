@@ -1,0 +1,23 @@
+# Release builders run this in a clean copy of the reviewed source tree.
+# No install hooks: package installation never changes PAM or starts a service.
+pkgname=omarchy-face-unlock-helper
+pkgver=0.4.0
+pkgrel=1
+pkgdesc='Bounded system configuration helper for Omarchy Face Unlock'
+arch=('any')
+url='https://github.com/therealasclepius/omarchy-face-unlock'
+license=('MIT')
+depends=('python>=3.11' 'systemd')
+optdepends=('facelock: backend required for setup and lock integration')
+options=('!debug')
+
+package() {
+  install -Dm755 "$startdir/../../helper/omarchy-face-unlock-helper" \
+    "$pkgdir/usr/bin/omarchy-face-unlock-helper"
+  install -Dm644 "$startdir/../../helper/manage.py" \
+    "$pkgdir/usr/lib/omarchy-face-unlock/manage.py"
+  install -Dm644 "$startdir/../../helper/auth_manage.py" \
+    "$pkgdir/usr/lib/omarchy-face-unlock/auth_manage.py"
+  install -Dm644 "$startdir/../../LICENSE" \
+    "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

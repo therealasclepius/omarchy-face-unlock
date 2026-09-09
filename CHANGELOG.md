@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.4.0
+
+- Replace sudo execution of plugin-directory Python with a separately packaged,
+  root-owned helper for setup, repair, optional authentication, and removal.
+- Isolate privileged Python imports, check installed paths, clear the inherited
+  environment, and restrict the helper to fixed operations and destinations.
+- Require the signed helper package before setup/repair; document authenticated
+  installation, independent updates, and signing-key trust requirements.
+- Retain existing installer journals and conservative undo behavior.
+- Add privilege-boundary regression tests and an Arch package recipe.
+
 ## 0.3.0
 
 - Retry temporary backend-readiness failures at startup, lock and wake without consuming a pending scan or overriding Escape.

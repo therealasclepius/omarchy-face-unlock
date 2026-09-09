@@ -182,8 +182,10 @@ def main():
     parser.add_argument('--uwsm-compat', action='store_true')
     parser.add_argument('--natural-motion', action='store_true')
     args = parser.parse_args()
+    if args.action != 'configure' and (args.uwsm_compat or args.natural_motion):
+        parser.error('security options are only supported with configure')
     if os.geteuid() != 0:
-        parser.error('Run via sudo from setup/remove; paths are fixed.')
+        parser.error('Run the packaged helper via sudo; paths are fixed.')
     check_trusted(CONFIG)
     check_trusted(PAM, missing=True)
     check_trusted(STATE_DIR, missing=True)

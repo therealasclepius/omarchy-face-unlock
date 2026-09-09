@@ -30,6 +30,7 @@ HELP
   shift
 done
 require_desktop
+require_helper
 require_installed
 if ! python3 "$PLUGIN_DIR/scripts/doctor.py" --compat-only; then
   (( unverified )) || fail 'This Omarchy lock version has not been reviewed; see README compatibility notes.'
@@ -43,19 +44,19 @@ require_facelock
 sudo -v
 if (( ! existing )); then
   echo 'Facelock will configure the camera, models, and encryption. PAM changes are disabled in its wizard.'
-  sudo facelock setup --no-pam --systemd --no-enroll "${camera[@]}"
+  sudo /usr/bin/facelock setup --no-pam --systemd --no-enroll "${camera[@]}"
 elif (( ${#camera[@]} )); then
   fail '--camera cannot be combined with --existing; configure the shared backend explicitly instead.'
 fi
-sudo python3 "$PLUGIN_DIR/scripts/manage.py" ensure-key
-sudo systemctl enable --now facelock-daemon
+sudo /usr/bin/omarchy-face-unlock-helper lock ensure-key
+sudo /usr/bin/systemctl enable --now facelock-daemon
 if ! facelock is-enrolled --quiet; then
   printf '\nSit at your normal typing distance. Press Enter, then slowly turn your head left and right.\n'
   read -r
-  sudo facelock enroll --user "$(id -un)" --label 'Normal sitting distance'
+  sudo /usr/bin/facelock enroll --user "$(id -un)" --label 'Normal sitting distance'
 fi
 facelock is-enrolled --quiet || fail 'Enrollment did not complete. Run ./enroll before enabling face unlock.'
-sudo python3 "$PLUGIN_DIR/scripts/manage.py" configure "${options[@]}"
+sudo /usr/bin/omarchy-face-unlock-helper lock configure "${options[@]}"
 require_desktop
 omarchy plugin enable "$PLUGIN_ID"
 omarchy restart shell

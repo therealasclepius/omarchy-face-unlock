@@ -7,8 +7,8 @@ import unittest
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / 'scripts'))
-spec = importlib.util.spec_from_file_location('auth_manage', ROOT / 'scripts/auth_manage.py')
+sys.path.insert(0, str(ROOT / 'helper'))
+spec = importlib.util.spec_from_file_location('auth_manage', ROOT / 'helper/auth_manage.py')
 m = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(m)
 

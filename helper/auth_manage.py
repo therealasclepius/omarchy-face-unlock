@@ -154,6 +154,8 @@ def main():
     parser.add_argument('--all', action='store_true', help='Disable both integrations')
     parser.add_argument('--allow-session-bypass', action='store_true')
     args = parser.parse_args()
+    if args.allow_session_bypass and args.action != 'enable':
+        parser.error('--allow-session-bypass is only supported with enable')
     services = [s for s, flag in [('sudo', args.sudo), ('polkit-1', args.polkit)] if flag]
     if args.action == 'status':
         if services or args.all or args.allow_session_bypass:

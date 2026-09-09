@@ -12,9 +12,9 @@ require_facelock
 sudo -v
 printf 'Sit at a normal distance and keep your face visible. Press Enter, then slowly turn your head.\n'
 read -r
-sudo facelock enroll --user "$(id -un)" --label "${1:-Additional angle $(date +%Y-%m-%d_%H-%M-%S)}"
+sudo /usr/bin/facelock enroll --user "$(id -un)" --label "${1:-Additional angle $(date +%Y-%m-%d_%H-%M-%S)}"
 facelock is-enrolled --quiet || fail 'No usable enrollment found.'
 printf '\nPress Enter to test recognition at the same distance.\n'
 read -r
-sudo facelock test --user "$(id -un)"
+sudo /usr/bin/facelock test --user "$(id -un)"
 echo 'Read the result: a zero exit status alone does not mean recognition succeeded.'

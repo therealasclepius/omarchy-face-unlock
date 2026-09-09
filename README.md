@@ -25,6 +25,11 @@ Physically tested on a Dell XPS 13 DX13260 with its 360×360, 15 fps IR camera. 
 
 ## Install
 
+First install the separately signed `omarchy-face-unlock-helper` system package
+using the [verified package installation procedure](packaging/README.md).
+The plugin cannot install or update its own privileged helper. Version 0.4.0
+requires helper protocol 1; setup and repair stop if it is missing or incompatible.
+
 Review the code, then run:
 
 ```bash
@@ -188,6 +193,12 @@ omarchy restart shell
 ```
 
 ## Development
+
+Privileged implementation sources live in `helper/`. They are packaged under
+`/usr/lib/omarchy-face-unlock` and invoked only by
+`/usr/bin/omarchy-face-unlock-helper`. Never run checkout Python with sudo.
+See [packaging and release instructions](packaging/README.md). Plugin updates
+and system-helper updates are separate operations.
 
 ```bash
 python3 -m unittest discover -s tests -v

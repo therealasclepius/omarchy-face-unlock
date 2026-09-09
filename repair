@@ -8,6 +8,7 @@ if [[ ${1:-} == -h || ${1:-} == --help ]]; then
 fi
 (( $# == 0 )) || fail 'No arguments expected.'
 require_desktop
+require_helper
 require_installed
 python3 "$PLUGIN_DIR/scripts/doctor.py" --compat-only || fail 'Update the plugin or review the changed Omarchy version before repair.'
 require_facelock
@@ -17,9 +18,9 @@ jq -e --arg id "$PLUGIN_ID" 'all(.[]; .enabled != true or .clonedFrom != "omarch
   fail 'Another custom locker is enabled. Choose your lock plugin explicitly before repair.'
 [[ -t 0 && -t 1 ]] || fail 'Repair requires a visible terminal for sudo.'
 sudo -v
-sudo systemctl enable --now facelock-daemon
+sudo /usr/bin/systemctl enable --now facelock-daemon
 facelock is-enrolled --quiet || fail 'No enrollment is available. Use ./doctor; repair never replaces your face data.'
-sudo python3 "$PLUGIN_DIR/scripts/manage.py" configure
+sudo /usr/bin/omarchy-face-unlock-helper lock configure
 require_desktop
 omarchy plugin enable "$PLUGIN_ID"
 omarchy restart shell

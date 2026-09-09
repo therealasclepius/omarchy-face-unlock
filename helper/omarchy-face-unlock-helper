@@ -1,0 +1,50 @@
+#!/usr/bin/python3 -I
+"""Packaged entry point. Never load modules from the caller or plugin directory."""
+import os
+from pathlib import Path
+import stat
+import subprocess
+import sys
+
+ENTRY = Path('/usr/bin/omarchy-face-unlock-helper')
+LIB = Path('/usr/lib/omarchy-face-unlock')
+
+
+def trusted(path):
+    for part in [*reversed(path.parents), path]:
+        info = part.lstat()
+        if stat.S_ISLNK(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o022:
+            raise RuntimeError(f'Untrusted helper path: {part}')
+
+
+def main():
+    if not sys.flags.isolated:
+        raise RuntimeError('The helper requires isolated Python (-I).')
+    if Path(__file__) != ENTRY:
+        raise RuntimeError('Install the signed system package; do not execute a checkout as root.')
+    for path in (ENTRY, LIB, LIB / 'manage.py', LIB / 'auth_manage.py'):
+        trusted(path)
+    # Do not forward caller-controlled loader, Python, or backend environment settings.
+    os.environ.clear()
+    os.environ.update(PATH='/usr/bin', LANG='C.UTF-8', HOME='/root')
+    os.chdir('/')
+    sys.dont_write_bytecode = True
+    if sys.argv[1:] == ['--protocol']:
+        print('1')
+        return
+    if len(sys.argv) < 3 or sys.argv[1] not in ('lock', 'auth'):
+        raise RuntimeError('Usage: omarchy-face-unlock-helper lock|auth ACTION [OPTIONS]')
+    # -I excludes CWD, PYTHONPATH, user site packages and the script directory.
+    # Only this fixed, checked package directory is added for our two modules.
+    sys.path.insert(0, str(LIB))
+    import manage
+    import auth_manage
+    command = sys.argv.pop(1)
+    (manage if command == 'lock' else auth_manage).main()
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except (OSError, ValueError, RuntimeError, subprocess.CalledProcessError) as error:
+        raise SystemExit(f'Face Unlock: {error}')

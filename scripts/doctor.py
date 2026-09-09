@@ -7,7 +7,15 @@ import os
 from pathlib import Path
 import subprocess
 import tomllib
-from manage import RULES, rules
+
+# Keep diagnostics unprivileged and independent of helper implementation imports.
+RULES = ['auth sufficient pam_facelock.so', 'auth required pam_deny.so',
+         'account include system-local-login']
+
+
+def rules(text):
+    return [' '.join(line.split()) for line in text.splitlines()
+            if line.strip() and not line.lstrip().startswith('#')]
 
 ROOT = Path(__file__).resolve().parent.parent
 ID = 'io.github.therealasclepius.face-unlock'
@@ -119,7 +127,7 @@ def main():
         print('CHECK: ' + issue)
     if not issues:
         print('OK: current Face Unlock version is running with password and face readiness')
-    result = command('python3', str(ROOT / 'scripts/auth_manage.py'), 'status')
+    result = command('/usr/bin/omarchy-face-unlock-helper', 'auth', 'status')
     print(result.stdout.strip() if result.returncode == 0 else 'CHECK: optional authentication status unavailable')
     print('Performance/recognition require a real lock-screen test; these checks do not prove a face match.')
     return 0 if good and not issues else 1

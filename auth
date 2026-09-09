@@ -19,17 +19,18 @@ Password fallback is retained; scans run before the password prompt.
   while your face is in view. This command never changes that setting.
 HELP
     exit 0 ;;
-  status) exec python3 "$PLUGIN_DIR/scripts/auth_manage.py" status "$@" ;;
+  status) exec /usr/bin/omarchy-face-unlock-helper auth status "$@" ;;
   enable|disable) ;;
   *) fail "Unknown action: $action" ;;
 esac
 require_desktop
+require_helper
 [[ -t 0 && -t 1 ]] || fail 'Use a visible terminal for authentication setup.'
 if [[ $action == enable ]]; then
   require_facelock
   facelock is-enrolled --quiet || fail 'Enroll your face with ./enroll first.'
 fi
-sudo python3 "$PLUGIN_DIR/scripts/auth_manage.py" "$action" "$@"
+sudo /usr/bin/omarchy-face-unlock-helper auth "$action" "$@"
 if [[ $action == enable ]]; then
   echo 'Test sudo in a fresh terminal: sudo -k; sudo /usr/bin/true'
   echo 'Test a graphical prompt: pkexec /usr/bin/true'

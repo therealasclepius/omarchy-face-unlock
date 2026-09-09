@@ -23,6 +23,9 @@ class RepairTests(unittest.TestCase):
         (plugin / 'scripts').mkdir(parents=True)
         shutil.copy(ROOT / 'repair', plugin / 'repair')
         shutil.copy(ROOT / 'scripts/common.sh', plugin / 'scripts/common.sh')
+        # Fixture-only helper: production always uses the absolute packaged path.
+        common = plugin / 'scripts/common.sh'
+        common.write_text(common.read_text().replace('/usr/bin/omarchy-face-unlock-helper', str(self.root / 'bin/omarchy-face-unlock-helper')))
         mock = self.root / 'bin'
         mock.mkdir()
         self.log = self.root / 'calls'
@@ -33,7 +36,8 @@ class RepairTests(unittest.TestCase):
             'facelock': '''if [[ "$1" == capabilities ]]; then
   printf '%s\\n' is-enrolled pam-status pam-if-present setup-no-pam setup-systemd
 elif [[ "$1" == is-enrolled ]]; then exit "${TEST_ENROLLED_RC:-0}"; fi''',
-            'sudo': 'if [[ "$*" == *"manage.py configure" ]]; then exit "${TEST_CONFIGURE_RC:-0}"; fi',
+            'omarchy-face-unlock-helper': 'printf "%s\\n" "${TEST_HELPER_PROTOCOL:-1}"',
+            'sudo': 'if [[ "$*" == *"omarchy-face-unlock-helper lock configure" ]]; then exit "${TEST_CONFIGURE_RC:-0}"; fi',
             'python3': 'if [[ "$1" == *doctor.py ]]; then exit "${TEST_COMPAT_RC:-0}"; fi',
         }
         for name, body in commands.items():
@@ -54,8 +58,8 @@ elif [[ "$1" == is-enrolled ]]; then exit "${TEST_ENROLLED_RC:-0}"; fi''',
     def test_repair_reuses_backend_without_security_or_admin_flags(self):
         result, calls = self.run_repair()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertIn('sudo systemctl enable --now facelock-daemon', calls)
-        self.assertIn('manage.py configure\n', calls)
+        self.assertIn('sudo /usr/bin/systemctl enable --now facelock-daemon', calls)
+        self.assertIn('omarchy-face-unlock-helper lock configure\n', calls)
         self.assertIn('omarchy plugin enable ' + ID, calls)
         self.assertIn('omarchy restart shell', calls)
         for forbidden in ['--uwsm-compat', '--natural-motion', 'auth_manage.py', 'enroll --', 'ensure-key']:
@@ -82,6 +86,16 @@ elif [[ "$1" == is-enrolled ]]; then exit "${TEST_ENROLLED_RC:-0}"; fi''',
                 self.assertNotEqual(result.returncode, 0)
                 self.assertNotIn('omarchy plugin enable', calls)
                 self.assertNotIn('omarchy restart shell', calls)
+
+    def test_incompatible_or_missing_helper_stops_before_sudo(self):
+        result, calls = self.run_repair(TEST_HELPER_PROTOCOL='2')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertNotIn('sudo ', calls)
+        self.log.write_text('')
+        (self.root / 'bin/omarchy-face-unlock-helper').unlink()
+        result, calls = self.run_repair()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertNotIn('sudo ', calls)
 
 
 if __name__ == '__main__':
