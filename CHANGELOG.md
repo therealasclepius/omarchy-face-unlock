@@ -1,6 +1,14 @@
 # Changelog
 
-## Unreleased
+## 0.3.0
+
+- Retry temporary backend-readiness failures at startup, lock and wake without consuming a pending scan or overriding Escape.
+- Enable the Facelock daemon at boot when reusing an existing installation.
+- Add conservative `repair` and read-only post-update/login health hooks, also installed when existing users first load this version.
+- Detect stale running plugin versions and respect Omarchy 4.0.3's private authentication-service store.
+- Check reviewed 4.0.2/4.0.3 lock, loader and shared UI fingerprints; add daily latest-release compatibility CI.
+- Add regression coverage for startup recovery, stale services, hidden authentication services, host changes, and hook lifecycle.
+
 
 - Start a face scan automatically once the lock is secure and the backend is ready.
 - Start a fresh scan on mouse or keyboard wake after the locker blanks the display.

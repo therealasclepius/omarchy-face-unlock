@@ -1,0 +1,5 @@
+#!/bin/bash
+# Managed by omarchy-face-unlock. Read-only: never re-enable or restart a locker.
+plugin="$HOME/.config/omarchy/plugins/io.github.therealasclepius.face-unlock"
+[[ -f "$plugin/scripts/update_health.py" ]] || exit 0
+exec /usr/bin/python3 "$plugin/scripts/update_health.py" --notify

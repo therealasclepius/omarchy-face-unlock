@@ -48,7 +48,7 @@ elif (( ${#camera[@]} )); then
   fail '--camera cannot be combined with --existing; configure the shared backend explicitly instead.'
 fi
 sudo python3 "$PLUGIN_DIR/scripts/manage.py" ensure-key
-sudo systemctl restart facelock-daemon
+sudo systemctl enable --now facelock-daemon
 if ! facelock is-enrolled --quiet; then
   printf '\nSit at your normal typing distance. Press Enter, then slowly turn your head left and right.\n'
   read -r
@@ -59,6 +59,8 @@ sudo python3 "$PLUGIN_DIR/scripts/manage.py" configure "${options[@]}"
 require_desktop
 omarchy plugin enable "$PLUGIN_ID"
 omarchy restart shell
-echo 'Face Unlock enabled. On the lock screen, press Enter with an empty field.'
+python3 "$PLUGIN_DIR/scripts/hooks.py" install
+python3 "$PLUGIN_DIR/scripts/update_health.py"
+echo 'Face Unlock enabled. Scans start automatically; Enter retries with an empty field.'
 echo 'Turn your head slightly. Escape cancels; your password remains available.'
 echo 'Use ./enroll for another distance/angle and ./doctor to diagnose problems.'

@@ -1,0 +1,27 @@
+#!/bin/bash
+set -euo pipefail
+source "$(dirname -- "${BASH_SOURCE[0]}")/scripts/common.sh"
+if [[ ${1:-} == -h || ${1:-} == --help ]]; then
+  echo 'Usage: ./repair — restore existing face unlock after an update, while unlocked.'
+  echo 'Keeps enrollment and security settings. Requires reviewed Omarchy and sudo.'
+  exit 0
+fi
+(( $# == 0 )) || fail 'No arguments expected.'
+require_desktop
+require_installed
+python3 "$PLUGIN_DIR/scripts/doctor.py" --compat-only || fail 'Update the plugin or review the changed Omarchy version before repair.'
+require_facelock
+# Refuse to replace a different custom locker, even if the stock IPC is present.
+catalog=$(omarchy plugin list --json)
+jq -e --arg id "$PLUGIN_ID" 'all(.[]; .enabled != true or .clonedFrom != "omarchy.lock" or .id == $id)' <<<"$catalog" >/dev/null ||
+  fail 'Another custom locker is enabled. Choose your lock plugin explicitly before repair.'
+[[ -t 0 && -t 1 ]] || fail 'Repair requires a visible terminal for sudo.'
+sudo -v
+sudo systemctl enable --now facelock-daemon
+facelock is-enrolled --quiet || fail 'No enrollment is available. Use ./doctor; repair never replaces your face data.'
+sudo python3 "$PLUGIN_DIR/scripts/manage.py" configure
+require_desktop
+omarchy plugin enable "$PLUGIN_ID"
+omarchy restart shell
+python3 "$PLUGIN_DIR/scripts/hooks.py" install
+python3 "$PLUGIN_DIR/scripts/update_health.py"

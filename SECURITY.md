@@ -19,3 +19,9 @@ The optional manager restricts writes to `/etc/pam.d/sudo`, `/etc/pam.d/polkit-1
 Keep your password working. Disk decryption and boot authentication are outside the scope of this plugin. The plugin never ships or uploads face templates, keys, or recordings. Do not attach biometric databases, keyfiles, passwords, or camera captures to public issues.
 
 For problems, open a GitHub issue with Omarchy/Facelock versions, camera model, and redacted error messages. For a suspected vulnerability, use GitHub's private vulnerability reporting if available; otherwise open a minimal issue asking for a private contact without publishing exploitation details.
+
+## Update resilience
+
+Read-only user hooks inspect health after Omarchy updates and login. They do not grant authorization, capture camera data, repair PAM, or automatically re-enable a disabled plugin. They are installed under the user's Omarchy hook directories; modified hooks and symlink paths are preserved/refused. Removing the plugin through `./remove` removes unchanged hooks. Deleting plugin files alone leaves harmless wrappers which exit if their target is missing.
+
+`./repair` is an explicit terminal action gated on an unlocked password-capable desktop and reviewed host code. It refuses another enabled custom locker and uses the existing conservative PAM manager. It retains enrollment and backend security policy, enables the daemon for boot, and does not alter optional admin-auth integrations. Setup now also enables the daemon when reusing an existing backend. Startup availability probes have a timeout and a finite retry budget; readiness never substitutes for successful PAM authentication. The doctor uses lock IPC identity/version rather than the public service map, preserving Omarchy 4.0.3's authentication isolation.

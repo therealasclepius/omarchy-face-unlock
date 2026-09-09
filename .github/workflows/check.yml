@@ -15,4 +15,4 @@ jobs:
           node-version: '22'
       - run: python3 -m unittest discover -s tests -v
       - run: node tests/face-flow.cjs
-      - run: bash -n setup remove enroll doctor auth scripts/common.sh
+      - run: bash -n setup remove enroll doctor auth repair scripts/common.sh scripts/update-health-hook

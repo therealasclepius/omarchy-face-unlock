@@ -22,6 +22,9 @@ Item {
   property bool fingerprintAuthenticating: false
   property bool passwordPamConfigured: false
   property bool fingerprintConfigured: false
+  property var manifest: null
+  readonly property string pluginVersion: "0.3.0"
+  property int faceReadinessRetries: 0
   property bool faceConfigured: false
   property bool faceAuthenticating: false
   property bool autoFacePending: false
@@ -129,6 +132,8 @@ Item {
     faceAuthenticating = false
     autoFacePending = false
     autoFaceTimer.stop()
+    faceReadinessTimer.stop()
+    faceReadinessRetries = 0
     displayBlanked = false
     faceMessage = ""
     faceTimeout.stop()
@@ -153,7 +158,7 @@ Item {
     Qt.callLater(function() {
       root.refreshBackground()
       root.refreshFingerprintStatus()
-      if (!faceCheckProc.running) faceCheckProc.running = true
+      root.refreshFaceStatus()
     })
 
     return true
@@ -189,6 +194,28 @@ Item {
     if (!blankProcess.running) blankProcess.running = true
   }
 
+  function refreshFaceStatus() {
+    faceReadinessRetries = 5
+    faceReadinessTimer.stop()
+    if (!faceCheckProc.running) faceCheckProc.running = true
+  }
+
+  function handleFaceAvailability(available) {
+    faceConfigured = available
+    if (available) {
+      faceReadinessTimer.stop()
+      scheduleAutoFace()
+    } else {
+      // Readiness failures are not authentication failures. A daemon still
+      // starting after an update must not consume the pending automatic scan.
+      if (faceAuthenticating) stopFace("Face scan unavailable. You can use your password.")
+      if (faceReadinessRetries > 0) {
+        faceReadinessRetries -= 1
+        faceReadinessTimer.restart()
+      }
+    }
+  }
+
   function scheduleAutoFace() {
     if (!autoFacePending || !lockRequested || !sessionLock.secure || !faceConfigured) return
     if (displayBlanked || authenticatingPassword || enteredPassword.length > 0) return
@@ -199,6 +226,7 @@ Item {
     if (displayBlanked && lockRequested) {
       displayBlanked = false
       autoFacePending = true
+      refreshFaceStatus()
       scheduleAutoFace()
     }
     runWake()
@@ -469,14 +497,28 @@ Item {
     onTriggered: root.stopFace("Face scan timed out. Press Enter to retry, or use your password.")
   }
 
+  // Also enroll existing installations in read-only update/login diagnostics
+  // when they first load this version. No privileged actions run here.
+  Process {
+    id: healthHookInstallProc
+    command: ["/usr/bin/python3", decodeURIComponent(Qt.resolvedUrl("scripts/hooks.py").toString().replace(/^file:\/\//, "")), "install"]
+    running: true
+    onExited: function(exitCode) {
+      if (exitCode !== 0) console.warn("Face Unlock: health hooks were not installed; run ./doctor or ./repair.")
+    }
+  }
+
   Process {
     id: faceCheckProc
-    command: ["bash", "-c", "test -f /etc/pam.d/omarchy-lock-face && facelock is-enrolled --quiet"]
-    onExited: function(exitCode) {
-      root.faceConfigured = exitCode === 0
-      if (!root.faceConfigured) root.stopFace()
-      else root.scheduleAutoFace()
-    }
+    command: ["/usr/bin/timeout", "--kill-after=1s", "3s", "/usr/bin/bash", "-c",
+      "test -f /etc/pam.d/omarchy-lock-face && /usr/bin/facelock is-enrolled --quiet"]
+    onExited: function(exitCode) { root.handleFaceAvailability(exitCode === 0) }
+  }
+
+  Timer {
+    id: faceReadinessTimer
+    interval: 2000
+    onTriggered: if (!faceCheckProc.running) faceCheckProc.running = true
   }
 
   Timer {
@@ -634,7 +676,7 @@ Item {
   Component.onCompleted: {
     refreshBackground()
     refreshFingerprintStatus()
-    faceCheckProc.running = true
+    refreshFaceStatus()
     checkStrandedLock()
   }
 
@@ -653,6 +695,8 @@ Item {
 
     function status(): string {
       return JSON.stringify({
+        pluginId: root.manifest ? root.manifest.id : "io.github.therealasclepius.face-unlock",
+        pluginVersion: root.pluginVersion,
         locked: root.locked,
         requested: root.lockRequested,
         pending: root.pendingSessionLock,

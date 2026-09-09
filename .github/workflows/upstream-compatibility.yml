@@ -1,0 +1,42 @@
+name: Omarchy compatibility
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: '20 8 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  reviewed-and-latest:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        omarchy: [v4.0.2, v4.0.3, latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Resolve Omarchy release
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REQUESTED_REF: ${{ matrix.omarchy }}
+        run: |
+          ref="$REQUESTED_REF"
+          if [[ "$ref" == latest ]]; then
+            ref=$(gh api repos/omacom/omarchy/releases/latest --jq .tag_name)
+          fi
+          printf 'ref=%s\n' "$ref" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v4
+        with:
+          repository: omacom/omarchy
+          ref: ${{ steps.release.outputs.ref }}
+          path: upstream
+          sparse-checkout: shell
+      - name: Check lock, loader and shared UI against reviewed releases
+        env:
+          OMARCHY_PATH: ${{ github.workspace }}/upstream
+        run: python3 scripts/doctor.py --compat-only

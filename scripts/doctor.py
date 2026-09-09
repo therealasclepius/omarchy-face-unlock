@@ -7,9 +7,11 @@ import os
 from pathlib import Path
 import subprocess
 import tomllib
+from manage import RULES, rules
 
 ROOT = Path(__file__).resolve().parent.parent
 ID = 'io.github.therealasclepius.face-unlock'
+FACE_PAM = Path('/etc/pam.d/omarchy-lock-face')
 
 
 def command(*args):
@@ -20,19 +22,63 @@ def command(*args):
 
 
 def compatibility():
-    stock = Path(os.environ.get('OMARCHY_PATH', '/usr/share/omarchy')) / 'shell/plugins/lock'
+    stock = Path(os.environ.get('OMARCHY_PATH', '/usr/share/omarchy'))
     baseline = json.loads((ROOT / 'upstream-lock.json').read_text())
-    changed = []
-    for name, digest in baseline['sha256'].items():
-        path = stock / name
-        if not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest() != digest:
-            changed.append(name)
-    if changed:
-        print('REVIEW: stock lock differs from tested Omarchy ' + baseline['omarchy_version'] + ': ' + ', '.join(changed))
-        print('The plugin bundles a lock-screen copy. Review upstream changes before enabling it.')
+    differences = []
+    for profile in baseline['profiles']:
+        changed = []
+        for name, digest in profile['sha256'].items():
+            try:
+                actual = hashlib.sha256((stock / name).read_bytes()).hexdigest()
+            except OSError:
+                actual = None
+            if actual != digest:
+                changed.append(name)
+        if not changed:
+            print('OK: lock, host loader and shared UI match reviewed Omarchy ' + profile['ref'])
+            return True
+        differences.append((profile['ref'], changed))
+    ref, changed = min(differences, key=lambda item: len(item[1]))
+    print('REVIEW: Omarchy differs from reviewed ' + ref + ': ' + ', '.join(changed))
+    print('Update the plugin and review upstream changes; a mismatch does not itself disable an installed plugin.')
+    return False
+
+
+def face_pam_ready():
+    try:
+        return rules(FACE_PAM.read_text()) == RULES
+    except OSError:
         return False
-    print('OK: stock lock matches tested Omarchy ' + baseline['omarchy_version'])
-    return True
+
+
+def runtime_issues(catalog, status):
+    """Use lock IPC, not catalog.active: Omarchy 4.0.3 hides auth services."""
+    issues = []
+    if not isinstance(catalog, list) or not any(
+            isinstance(p, dict) and p.get('id') == ID and p.get('enabled') is True
+            for p in catalog):
+        issues.append('Face Unlock is not enabled. Run ./repair if you want to restore it.')
+        return issues
+    if not isinstance(status, dict):
+        return ['Lock IPC unavailable. Unlock first; restore the stock locker if necessary (see README).']
+    expected = json.loads((ROOT / 'manifest.json').read_text())['version']
+    if status.get('pluginId') != ID or status.get('pluginVersion') != expected:
+        issues.append('The running locker differs from the installed plugin. Run ./repair while unlocked to reload it.')
+    if status.get('passwordPam') is not True:
+        issues.append('Password PAM is not ready; restore Omarchy password authentication before repair.')
+    if status.get('face') is not True:
+        issues.append('Face backend is not ready. Check the daemon, enrollment and dedicated PAM service with ./doctor.')
+    return issues
+
+
+def read_json_command(*args):
+    result = command(*args)
+    if result.returncode:
+        return None
+    try:
+        return json.loads(result.stdout)
+    except ValueError:
+        return None
 
 
 def main():
@@ -47,12 +93,14 @@ def main():
         ('Daemon running', ['systemctl', 'is-active', 'facelock-daemon']),
         ('Daemon enabled at boot', ['systemctl', 'is-enabled', 'facelock-daemon']),
         ('Current user enrolled', ['facelock', 'is-enrolled', '--quiet']),
-        ('Face PAM configured', ['facelock', 'pam', 'status', '--service', 'omarchy-lock-face', '--json']),
     ]:
         result = command(*cmd)
         good = good and result.returncode == 0
         detail = result.stdout.strip() if label == 'Facelock version' else ''
         print(('OK: ' if result.returncode == 0 else 'CHECK: ') + label + (' — ' + detail if detail else ''))
+    pam_ready = face_pam_ready()
+    print(('OK: ' if pam_ready else 'CHECK: ') + 'Dedicated face PAM rules')
+    good = good and pam_ready
     try:
         config = tomllib.loads(Path('/etc/facelock/config.toml').read_text())
         security = config.get('security', {})
@@ -65,16 +113,16 @@ def main():
     except (OSError, ValueError):
         print('CHECK: backend configuration unavailable or invalid')
         good = False
-    result = command('omarchy', 'plugin', 'list', '--json')
-    try:
-        enabled = any(p['id'] == ID and p.get('enabled') for p in json.loads(result.stdout))
-    except (ValueError, TypeError, KeyError):
-        enabled = False
-    print(('OK: ' if enabled else 'CHECK: ') + 'Face Unlock plugin enabled')
+    issues = runtime_issues(read_json_command('omarchy', 'plugin', 'list', '--json'),
+                            read_json_command('omarchy-shell', 'lock', 'status'))
+    for issue in issues:
+        print('CHECK: ' + issue)
+    if not issues:
+        print('OK: current Face Unlock version is running with password and face readiness')
     result = command('python3', str(ROOT / 'scripts/auth_manage.py'), 'status')
     print(result.stdout.strip() if result.returncode == 0 else 'CHECK: optional authentication status unavailable')
     print('Performance/recognition require a real lock-screen test; these checks do not prove a face match.')
-    return 0 if good and enabled else 1
+    return 0 if good and not issues else 1
 
 
 if __name__ == '__main__':

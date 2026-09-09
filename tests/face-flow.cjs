@@ -3,7 +3,7 @@ const vm = require('node:vm');
 const path = require('node:path');
 const assert = require('node:assert/strict');
 const source = fs.readFileSync(path.join(__dirname, '..', 'Service.qml'), 'utf8');
-const functions = ['stopFace', 'startFace', 'handleFaceFinished', 'scheduleAutoFace', 'handleUserWake'].map(name => {
+const functions = ['stopFace', 'startFace', 'handleFaceFinished', 'scheduleAutoFace', 'handleUserWake', 'refreshFaceStatus', 'handleFaceAvailability'].map(name => {
   const start = source.indexOf('  function ' + name + '(');
   const end = source.indexOf('\n  }', start) + 4;
   assert(start > 0 && end > start);
@@ -15,7 +15,9 @@ function context() {
     authenticatingPassword: false, faceAuthenticating: false,
     failureMessage: '', faceMessage: '', enteredPassword: '', unlocked: false, starts: 0,
     faceTimeout: {stop() {}, restart() {}},
-    autoFacePending: true, displayBlanked: false,
+    autoFacePending: true, displayBlanked: false, faceReadinessRetries: 5,
+    faceCheckProc: {running: false},
+    faceReadinessTimer: {running: false, stop() {this.running = false;}, restart() {this.running = true;}},
     autoFaceTimer: {running: false, start() {this.running = true;}, stop() {this.running = false;}},
     runWake() {}, logEvent() {}, finishUnlock() { c.unlocked = true; },
     PamResult: {Success: 0},
@@ -82,3 +84,30 @@ for (const patch of [{lockRequested:false}, {sessionLock:{secure:false}}, {faceC
   assert.equal(c.autoFaceTimer.running, false, 'ordinary mouse movement cannot undo cancellation');
 }
 console.log('Automatic scan checks passed: readiness, password typing, cancellation, wake and bounded attempts.');
+
+{
+  const c = context(); c.handleFaceAvailability(false);
+  assert.equal(c.autoFacePending, true, 'temporary backend failure must preserve the automatic request');
+  assert.equal(c.faceReadinessTimer.running, true);
+  c.handleFaceAvailability(true);
+  assert.equal(c.autoFaceTimer.running, true, 'backend recovery resumes automatic unlock');
+  assert.equal(c.faceReadinessTimer.running, false);
+  assert.equal(c.unlocked, false, 'readiness never authenticates');
+}
+{
+  const c = context(); c.handleFaceAvailability(false); c.stopFace('Cancelled');
+  c.handleFaceAvailability(true);
+  assert.equal(c.autoFaceTimer.running, false, 'backend recovery must honor Escape');
+}
+{
+  const c = context();
+  for (let i = 0; i < 6; i++) {
+    c.faceReadinessTimer.stop(); c.handleFaceAvailability(false);
+  }
+  assert.equal(c.faceReadinessTimer.running, false, 'readiness retries have a finite budget');
+  assert.equal(c.starts, 0, 'readiness probes never scan the camera');
+  c.displayBlanked = true; c.handleUserWake();
+  assert.equal(c.faceReadinessRetries, 5, 'wake renews readiness checks');
+  assert.equal(c.faceCheckProc.running, true);
+}
+console.log('Update/startup recovery checks passed: transient readiness, bounded retries, wake and cancellation.');

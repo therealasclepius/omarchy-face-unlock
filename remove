@@ -8,6 +8,7 @@ if [[ ${1:-} == -h || ${1:-} == --help ]]; then
 fi
 (( $# == 0 )) || fail 'No arguments expected.'
 require_desktop
+python3 "$PLUGIN_DIR/scripts/hooks.py" remove
 # Restore a known password-capable locker before altering the optional face lane.
 omarchy plugin enable omarchy.lock
 omarchy restart shell

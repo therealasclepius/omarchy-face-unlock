@@ -16,7 +16,7 @@ Automatic scanning can unlock immediately after locking if your enrolled face re
 
 ## Requirements and support
 
-- Omarchy **4.0.2-1** with the Quickshell lock screen. Setup checks the stock QML against the tested copy and stops on differences. This is not a Hyprlock plugin.
+- Omarchy **4.0.2 or 4.0.3** with the Quickshell lock screen. Setup checks the stock lock, host loader and shared UI against reviewed release fingerprints and stops on differences. This is not a Hyprlock plugin.
 - An IR camera supported by Facelock and Linux V4L2. An ordinary RGB webcam is not supported by the default security policy.
 - Facelock **0.2.1** or a compatible newer version, available as AUR `facelock-bin`.
 - Working password unlock, an interactive terminal, and sudo access for setup.
@@ -43,6 +43,33 @@ Already have a configured Facelock backend? Reuse its camera, models, encryption
 ```
 
 A new setup can pass `--camera /dev/video2` (use **your** actual IR device), or `--camera auto`. Camera selection is otherwise interactive. No enrollment data, keys, camera recordings, or machine-specific configuration is shipped in this repository.
+
+## Omarchy and plugin updates
+
+```bash
+omarchy plugin update io.github.therealasclepius.face-unlock --yes
+# While unlocked, activate the new lock code:
+omarchy restart shell
+~/.config/omarchy/plugins/io.github.therealasclepius.face-unlock/doctor
+```
+
+Omarchy keeps authentication services alive during plugin rescans to protect an active lock. A successful plugin download/rescan therefore does **not** prove the new code is running. The doctor compares the installed version with the lock service's IPC identity and version. Omarchy 4.0.3 intentionally hides authentication services from its public service map; the catalog's `active: false` alone is not a failure.
+
+Version 0.3.0 installs read-only `post-update` and `post-boot` health hooks during setup and when the updated plugin first loads, including existing installations after a shell restart. These hooks check compatibility, plugin enablement, the running version, password/face readiness, and whether the daemon is running and enabled for boot. They briefly retry startup checks and report problems in the terminal and a desktop notification. The post-update hook runs before Omarchy's final shell restart and AUR updates; a restart warning there may be resolved by completing the update. The post-boot hook checks again on the next login. Hooks do not modify PAM, restart a locked session, or re-enable a deliberately disabled plugin.
+
+If face unlock stopped working after an update, unlock with your password, then run in a terminal:
+
+```bash
+cd ~/.config/omarchy/plugins/io.github.therealasclepius.face-unlock
+./doctor
+./repair
+```
+
+`repair` reuses enrollment and security settings, enables the existing Facelock daemon for boot, restores the dedicated face PAM service when missing, re-enables this plugin, and restarts the shell while unlocked. It refuses changed/unreviewed Omarchy code, custom face PAM stacks, missing enrollment, another enabled custom locker, or an unavailable/locked desktop. It never opts into sudo/polkit authentication or changes the session, IR, movement, or similarity policies. For an unavailable lock service, use the stock-lock recovery instructions below before retrying.
+
+The face service also retries temporary enrollment-readiness failures with a bounded budget at startup, lock and display wake. Those probes do not capture frames or count as successful authentication; only the dedicated PAM scan can unlock.
+
+CI checks both reviewed releases and the latest published Omarchy release daily, including loader and shared-UI fingerprints. A new mismatch prompts maintainer review; it does not disable existing installations or claim that every difference is incompatible. Future Omarchy/Quickshell changes and hardware-specific failures cannot be guaranteed away. Please report the versions, `./doctor` output, and what restored functionality, without biometric data. The reported X update failure has not yet been reproduced from a specific report.
 
 ## Optional: installs, admin prompts, and 1Password
 
@@ -149,7 +176,7 @@ While unlocked:
 omarchy plugin remove io.github.therealasclepius.face-unlock
 ```
 
-Removal first enables Omarchy's stock lock screen. It disables installer-owned optional sudo/polkit integrations, then removes the face PAM service **only if this installer created it and its contents have not subsequently changed**. A pre-existing compatible face service is reused and retained. Optional settings applied by this installer are restored only while they still match the applied values; later user changes are preserved. State and the original config backup live under root-owned `/var/lib/omarchy-face-unlock/`.
+Removal removes only unchanged plugin-owned health hooks, then enables Omarchy's stock lock screen. It disables installer-owned optional sudo/polkit integrations, then removes the face PAM service **only if this installer created it and its contents have not subsequently changed**. A pre-existing compatible face service is reused and retained. Optional settings applied by this installer are restored only while they still match the applied values; later user changes are preserved. State and the original config backup live under root-owned `/var/lib/omarchy-face-unlock/`.
 
 Facelock, camera/model configuration, its enabled daemon, encryption keys, and enrolled faces are retained because another application or user may use them. To remove the backend too, follow Facelock's package removal and data-purge documentation. Removing plugin files alone does not undo system configuration; run `remove` first.
 
@@ -165,7 +192,7 @@ omarchy restart shell
 ```bash
 python3 -m unittest discover -s tests -v
 node tests/face-flow.cjs
-bash -n setup remove enroll doctor auth scripts/common.sh
+bash -n setup remove enroll doctor auth repair scripts/common.sh scripts/update-health-hook
 omarchy plugin validate .
 /usr/lib/qt6/bin/qmlformat Service.qml >/dev/null
 /usr/lib/qt6/bin/qmlformat LockView.qml >/dev/null
