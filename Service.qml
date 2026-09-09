@@ -23,7 +23,7 @@ Item {
   property bool passwordPamConfigured: false
   property bool fingerprintConfigured: false
   property var manifest: null
-  readonly property string pluginVersion: "0.3.0"
+  readonly property string pluginVersion: "0.4.0"
   property int faceReadinessRetries: 0
   property bool faceConfigured: false
   property bool faceAuthenticating: false

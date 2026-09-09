@@ -149,6 +149,8 @@ class PackagingTests(unittest.TestCase):
     def test_manifest_and_portability(self):
         manifest = json.loads((ROOT / 'manifest.json').read_text())
         self.assertEqual(manifest['omarchy']['clonedFrom'], 'omarchy.lock')
+        self.assertIn('readonly property string pluginVersion: ' + json.dumps(manifest['version']),
+                      (ROOT / 'Service.qml').read_text())
         for file in ['Service.qml', 'LockView.qml', 'setup', 'remove', 'enroll', 'doctor']:
             text = (ROOT / file).read_text()
             self.assertNotIn('/home/', text)

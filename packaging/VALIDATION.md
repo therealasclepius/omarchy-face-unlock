@@ -27,7 +27,8 @@ Signing fingerprint: `56F44649A6A1D7ED0C600DE7673E5021B926A4E6`
 
 ## Limits
 
-The lock-screen QML and biometric backend are unchanged by this release. These
+The lock-screen behavior and biometric backend are unchanged by this release;
+the QML-reported version is updated to match the manifest. These
 checks exercise the new privileged-code boundary and package trust. They are not
 an independent security audit or new hardware/presentation-attack certification.
 Covered-camera password fallback and physical lock/unlock remain user-observed
